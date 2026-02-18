@@ -65,10 +65,3 @@ def health_check():
 if __name__ == '__main__':
     app.run(debug=True)
 '''
-
-with open('app.py', 'w') as f:
-    f.write(app_code)
-
-from google.colab import files
-files.download('app.py')
-print("✅ Connected app.py created and downloaded!")
