@@ -1,4 +1,9 @@
-"""
+# ============================================================
+# GENERATE app.py - Flask Application Entry Point
+# Run this in Google Colab
+# ============================================================
+
+app_code = '''"""
 Dr.R L - Literature Search AI Agent
 Flask Web Application
 """
@@ -33,22 +38,22 @@ def rate_limit(max_requests=10, window=60):
         def wrapped(*args, **kwargs):
             client_ip = request.remote_addr
             now = time.time()
-            
+
             # Clean old entries
             if client_ip in request_history:
                 request_history[client_ip] = [
-                    req_time for req_time in request_history[client_ip] 
+                    req_time for req_time in request_history[client_ip]
                     if now - req_time < window
                 ]
             else:
                 request_history[client_ip] = []
-            
+
             # Check limit
             if len(request_history.get(client_ip, [])) >= max_requests:
                 return jsonify({
                     'error': 'Rate limit exceeded. Please wait a minute.'
                 }), 429
-            
+
             request_history[client_ip].append(now)
             return f(*args, **kwargs)
         return wrapped
@@ -69,23 +74,23 @@ def search():
         max_results = min(int(data.get('max_results', 10)), 50)  # Cap at 50
         year_start = data.get('year_start')
         year_end = data.get('year_end')
-        
+
         if not query or len(query) < 3:
             return jsonify({
                 'error': 'Please enter a valid search query (min 3 characters)'
             }), 400
-        
+
         # Build year range
         year_range = None
         if year_start and year_end:
             year_range = (int(year_start), int(year_end))
-        
+
         logger.info(f"Search query: {query} | Year range: {year_range}")
-        
+
         # TODO: Initialize DrRLAgent and run search
         # agent = DrRLAgent(base_folder="downloads")
         # results = agent.search(query, max_results=max_results, year_range=year_range)
-        
+
         # Placeholder response for now
         return jsonify({
             'success': True,
@@ -95,7 +100,7 @@ def search():
             'max_results': max_results,
             'status': 'processing'
         })
-        
+
     except Exception as e:
         logger.error(f"Search error: {str(e)}")
         return jsonify({
@@ -142,3 +147,16 @@ def internal_error(error):
 # For local development
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
+'''
+
+# Write to file
+with open('app.py', 'w') as f:
+    f.write(app_code)
+
+# Download to your PC
+from google.colab import files
+files.download('app.py')
+
+print("✅ app.py created and downloaded!")
+print("\n📋 This is your Flask application entry point.")
+print("Render will run this file using Gunicorn.")
