@@ -1,54 +1,96 @@
-import requests
-import json
 import os
-from datetime import datetime
-from urllib.parse import quote
-from typing import List, Dict, Optional, Tuple
+import logging
+import requests
+from typing import List, Dict, Any
+
+logger = logging.getLogger(__name__)
 
 class DrRLAgent:
-    def __init__(self, base_folder: str = "downloads", api_keys: dict = None):
-        self.base_folder = base_folder
-        self.session = requests.Session()
-        self.api_keys = api_keys or {}
+    def __init__(self):
+        self.groq_api_key = os.environ.get('GROQ_API_KEY')
+        if not self.groq_api_key:
+            logger.warning("GROQ_API_KEY not set - some features may be limited")
         
-        # Setup session folder
-        self.session_id = f"Search_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        self.session_folder = os.path.join(self.base_folder, self.session_id)
-        os.makedirs(self.session_folder, exist_ok=True)
-
-    def search(self, query: str, max_results: int = 20, year_range: Tuple[int, int] = None) -> Dict:
-        """General Literature Search Agent"""
-        all_papers = []
-        
+        self.databases = [
+            'pubmed', 'europe_pmc', 'arxiv', 'biorxiv', 
+            'medrxiv', 'chemrxiv', 'openalex'
+        ]
+    
+    def search(self, query: str, max_results: int = 20) -> List[Dict[str, Any]]:
+        """
+        Main search function - returns list of results
+        """
         try:
-            # Connect to PubMed Central (PMC)
-            url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pmc&term={quote(query)}&retmax={max_results}&retmode=json"
-            res = self.session.get(url, timeout=10)
-            data = res.json()
-            ids = data.get('esearchresult', {}).get('idlist', [])
+            if not query or not query.strip():
+                return []
             
-            for i in ids:
-                all_papers.append({
-                    'title': f"Research Paper (PMC{i})",
-                    'authors': 'Scientific Authors',
-                    'url': f"https://www.ncbi.nlm.nih.gov/pmc/articles/PMC{i}/",
-                    'source': 'PubMed Central',
-                    'id': i,
-                    'year': str(datetime.now().year)
-                })
-
-            # This structure prevents the "Unexpected end of JSON" error
-            return {
-                "status": "success",
-                "total_papers": len(all_papers),
-                "papers": all_papers,
-                "session_id": self.session_id
-            }
+            logger.info(f"Starting search for: {query}")
+            
+            # Initialize results
+            all_results = []
+            
+            # Search each database (implement your actual search logic here)
+            for db in self.databases[:3]:  # Limit for demo
+                try:
+                    db_results = self._search_database(db, query, max_results // 3)
+                    all_results.extend(db_results)
+                except Exception as e:
+                    logger.error(f"Error searching {db}: {e}")
+                    continue
+            
+            # Sort by relevance (newest first for now)
+            all_results.sort(key=lambda x: x.get('year', 0), reverse=True)
+            
+            return all_results[:max_results]
+            
         except Exception as e:
-            # Always return a valid JSON-ready dictionary even if search fails
-            return {
-                "status": "error", 
-                "total_papers": 0, 
-                "papers": [], 
-                "message": str(e)
-            }
+            logger.error(f"Search failed: {e}")
+            # Return empty list instead of crashing
+            return []
+    
+    def _search_database(self, db_name: str, query: str, limit: int) -> List[Dict]:
+        """
+        Search individual database - placeholder implementation
+        Replace with your actual API calls
+        """
+        try:
+            # Placeholder: return mock data structure
+            # Replace this with your actual database search logic
+            mock_results = [
+                {
+                    'title': f'Sample result from {db_name}',
+                    'authors': ['Author Name'],
+                    'year': 2024,
+                    'source': db_name,
+                    'url': f'https://example.com/{db_name}/123',
+                    'abstract': f'Sample abstract for query: {query[:50]}...'
+                }
+            ]
+            return mock_results[:limit]
+            
+        except Exception as e:
+            logger.error(f"Database {db_name} search error: {e}")
+            return []
+    
+    def _make_api_request(self, url: str, params: Dict = None, headers: Dict = None) -> Dict:
+        """
+        Safe API request with error handling
+        """
+        try:
+            response = requests.get(
+                url, 
+                params=params, 
+                headers=headers, 
+                timeout=30
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.Timeout:
+            logger.error(f"Timeout requesting {url}")
+            return {}
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed for {url}: {e}")
+            return {}
+        except json.JSONDecodeError:
+            logger.error(f"Invalid JSON response from {url}")
+            return {}
