@@ -1,11 +1,12 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 import os
-import logging
 from dr_r_agent import DrRLAgent
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'gastric-cancer-2026')
+app.secret_key = os.environ.get('SECRET_KEY', 'research-agent-2026')
+
+# This is the "Security Guard" that allows data to flow to your browser
 CORS(app)
 
 @app.route('/')
@@ -22,19 +23,18 @@ def search():
         query = data.get('query', '').strip()
         max_results = data.get('max_results', 20)
         
+        # Start the Agent
         agent = DrRLAgent()
         results = agent.search(query, max_results=max_results)
         
-        # Guard against "Unexpected end of JSON"
-        if not results:
-            return jsonify({'success': False, 'error': 'Agent returned empty response'}), 500
-
+        # Return valid JSON
         return jsonify({
             'success': True,
             'results': results
         })
         
     except Exception as e:
+        # If the server crashes, it sends this JSON instead of an HTML error page
         return jsonify({
             'success': False, 
             'error': 'Internal Server Error',
