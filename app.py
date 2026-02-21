@@ -3,7 +3,7 @@ import sys
 import json
 import logging
 import traceback
-from flask import Flask, render_template, request, jsonify, make_response
+from flask import Flask, render_template, request, jsonify, make_response, after_this_request
 
 # Configure logging immediately
 logging.basicConfig(
@@ -32,6 +32,14 @@ app.secret_key = os.environ.get('SECRET_KEY', 'research-agent-2026')
 # CRITICAL: Disable Flask HTML error pages
 app.config['PROPAGATE_EXCEPTIONS'] = True
 
+# CORS - Add headers to all responses
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -50,9 +58,6 @@ def search():
     # Handle CORS preflight
     if request.method == 'OPTIONS':
         response = make_response(jsonify({'success': True}))
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
         return response
     
     # Check if agent is available
@@ -96,7 +101,6 @@ def search():
         
         return jsonify({
             'success': True,
-            'search_id': str(hash(query + str(os.urandom(4)))),
             'results_count': len(results),
             'results': results
         })
