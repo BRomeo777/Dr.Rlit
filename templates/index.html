@@ -208,7 +208,10 @@
             updateProgress(10);
             
             try {
-                const response = await fetch('/search', {
+                // Use absolute URL to avoid path issues
+                const apiUrl = window.location.origin + '/search';
+                
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -222,12 +225,12 @@
                     })
                 });
                 
-                // CRITICAL FIX: Check if response is HTML before parsing JSON
+                // Check if response is HTML before parsing JSON
                 const contentType = response.headers.get('content-type');
                 const text = await response.text();
                 
                 if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
-                    console.error('Server returned HTML error:', text);
+                    console.error('Server returned HTML error:', text.substring(0, 500));
                     throw new Error('Server error - received HTML instead of JSON. Check Render logs.');
                 }
                 
@@ -239,7 +242,7 @@
                 try {
                     data = JSON.parse(text);
                 } catch (e) {
-                    console.error('Invalid JSON:', text);
+                    console.error('Invalid JSON response:', text);
                     throw new Error('Server returned invalid JSON');
                 }
                 
