@@ -22,6 +22,8 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+pip-log.txt
+pip-delete-this-directory.txt
 
 # Virtual Environment
 venv/
@@ -36,14 +38,25 @@ ENV/
 *.swp
 *.swo
 *~
+.project
+.pydevproject
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Flask
 instance/
 .webassets-cache
+flask_session/
+
+# Render / Production
+*.pem
+*.key
+*.crt
+render.yaml
+!render.yaml.example
 
 # Dr.R L Specific
 downloads/
@@ -52,20 +65,27 @@ Dr_R_L_Research/
 *.pdf
 search_results/
 temp/
+papers/
+cache/
 
 # Logs
 *.log
 logs/
+log/
 
-# Environment Variables
+# Environment Variables - CRITICAL: Never commit these!
 .env
 .env.local
 .env.production
+.env.development
+.env.*
+!.env.example
 
 # Database
 *.db
 *.sqlite
 *.sqlite3
+*.db-journal
 
 # Jupyter
 .ipynb_checkpoints/
@@ -76,3 +96,29 @@ logs/
 htmlcov/
 .pytest_cache/
 .tox/
+.nox/
+.hypothesis/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pytest
+.pytest_cache/
+
+# Local development
+local_settings.py
+settings_local.py
+
+# Gunicorn
+gunicorn.conf.py
+
+# Node (if you add frontend later)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Compiled files
+*.min.js
+*.min.css
