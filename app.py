@@ -1,8 +1,14 @@
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 import os
+import sys
 import traceback
 import logging
+
+# Add the current directory to Python path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Use relative import for the package
 from dr_r_agent import DrRLAgent
 
 # Configure logging
@@ -14,12 +20,21 @@ app.secret_key = os.environ.get('SECRET_KEY', 'research-agent-2026')
 
 # CORS configuration - more permissive for debugging
 CORS(app, resources={
+    r"/api/*": {
+        "origins": "*",
+        "methods": ["POST", "OPTIONS", "GET"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    },
     r"/search": {
         "origins": "*",
         "methods": ["POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"]
     }
 })
+
+def is_api_request():
+    """Check if current request expects JSON response"""
+    return request.path.startswith('/search') or request.path.startswith('/api/')
 
 @app.route('/')
 def index():
@@ -29,7 +44,11 @@ def index():
 def search():
     # Handle preflight OPTIONS request
     if request.method == 'OPTIONS':
-        return jsonify({'success': True}), 200
+        response = jsonify({'success': True})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'POST,OPTIONS')
+        return response, 200
     
     try:
         # Ensure we have JSON content type
@@ -37,7 +56,8 @@ def search():
             logger.error(f"Content-Type is {request.content_type}, expected application/json")
             return jsonify({
                 'success': False, 
-                'error': 'Content-Type must be application/json'
+                'error': 'Content-Type must be application/json',
+                'received_content_type': request.content_type
             }), 400
         
         data = request.get_json(silent=True)
@@ -76,10 +96,12 @@ def search():
         logger.info(f"Search completed, found {len(results)} results")
         
         # Return valid JSON
-        return jsonify({
+        response = jsonify({
             'success': True,
             'results': results
         })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
         
     except Exception as e:
         logger.error(f"Search error: {str(e)}")
@@ -93,37 +115,55 @@ def search():
             'traceback': traceback.format_exc() if app.debug else None
         }), 500
 
-# Global error handlers - ensure JSON responses for all errors
+# Global error handlers - ensure JSON responses for API routes
 @app.errorhandler(404)
 def not_found(error):
-    if request.path.startswith('/search'):
+    if is_api_request():
         return jsonify({
             'success': False,
             'error': 'Endpoint not found',
-            'path': request.path
+            'path': request.path,
+            'method': request.method
         }), 404
-    return render_template('index.html')
+    return render_template('index.html'), 404
+
+@app.errorhandler(405)
+def method_not_allowed(error):
+    """Handle wrong HTTP methods (e.g., GET instead of POST)"""
+    if is_api_request():
+        return jsonify({
+            'success': False,
+            'error': 'Method not allowed',
+            'allowed_methods': error.description if hasattr(error, 'description') else 'Check API documentation',
+            'your_method': request.method,
+            'path': request.path
+        }), 405
+    return render_template('index.html'), 405
 
 @app.errorhandler(500)
 def internal_error(error):
     logger.error(f"500 error: {str(error)}")
-    return jsonify({
-        'success': False,
-        'error': 'Internal server error',
-        'details': str(error)
-    }), 500
+    if is_api_request():
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error',
+            'details': str(error)
+        }), 500
+    return render_template('index.html'), 500
 
 @app.errorhandler(Exception)
 def handle_exception(error):
     logger.error(f"Unhandled exception: {str(error)}")
-    return jsonify({
-        'success': False,
-        'error': 'Unexpected error',
-        'details': str(error)
-    }), 500
+    if is_api_request():
+        return jsonify({
+            'success': False,
+            'error': 'Unexpected error',
+            'details': str(error)
+        }), 500
+    return render_template('index.html'), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    # Disable debug mode in production to prevent HTML error pages
+    # NEVER enable debug mode in production - it returns HTML error pages with stack traces
     debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     app.run(host='0.0.0.0', port=port, debug=debug_mode)
